@@ -41,15 +41,17 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 /**
+ *
  * @author Clinton Begin
  * @author Kazuki Shimizu
  */
 public class XPathParser {
-
+  // w3c dom模型，保存xml结果
   private final Document document;
   private boolean validation;
   private EntityResolver entityResolver;
   private Properties variables;
+  // javax.xml中相关的类
   private XPath xpath;
 
   public XPathParser(String xml) {
@@ -221,12 +223,18 @@ public class XPathParser {
 
   private Object evaluate(String expression, Object root, QName returnType) {
     try {
+      // evaluate() 方法计算一个 XPath 表达式。表示根据给定的 Context 节点计算的表达式的一个 XPathResult 对象。
       return xpath.evaluate(expression, root, returnType);
     } catch (Exception e) {
       throw new BuilderException("Error evaluating XPath.  Cause: " + e, e);
     }
   }
 
+  /**
+   * 将xml流解析为Document对象
+   * @param inputSource
+   * @return
+   */
   private Document createDocument(InputSource inputSource) {
     // important: this must only be called AFTER common constructor
     try {
