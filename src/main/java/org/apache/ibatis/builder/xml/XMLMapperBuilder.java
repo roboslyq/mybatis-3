@@ -50,6 +50,7 @@ import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeHandler;
 
 /**
+ * ====> 根据XML配置，来创建接口对应的Mapper代理
  * @author Clinton Begin
  * @author Kazuki Shimizu
  */
@@ -90,15 +91,21 @@ public class XMLMapperBuilder extends BaseBuilder {
     this.resource = resource;
   }
 
+  /**
+   * 解析XML配置
+   */
   public void parse() {
+    // 如果资源还未加载，则进行资源加载
     if (!configuration.isResourceLoaded(resource)) {
       configurationElement(parser.evalNode("/mapper"));
       configuration.addLoadedResource(resource);
       bindMapperForNamespace();
     }
-
+    // 解析ResultMaps
     parsePendingResultMaps();
+    // 解析CacheReference
     parsePendingCacheRefs();
+    // 解析Statements(相当于SQL语句)
     parsePendingStatements();
   }
 
@@ -142,6 +149,9 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * 解析ResultMaps
+   */
   private void parsePendingResultMaps() {
     Collection<ResultMapResolver> incompleteResultMaps = configuration.getIncompleteResultMaps();
     synchronized (incompleteResultMaps) {

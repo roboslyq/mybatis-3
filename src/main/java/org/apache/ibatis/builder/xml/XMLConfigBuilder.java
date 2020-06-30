@@ -48,11 +48,12 @@ import org.apache.ibatis.transaction.TransactionFactory;
 import org.apache.ibatis.type.JdbcType;
 
 /**
+ * XML构建器：解析XML相关
  * @author Clinton Begin
  * @author Kazuki Shimizu
  */
 public class XMLConfigBuilder extends BaseBuilder {
-
+  // 是否已经解析，只能解析一次
   private boolean parsed;
   private final XPathParser parser;
   private String environment;
@@ -78,11 +79,18 @@ public class XMLConfigBuilder extends BaseBuilder {
     this(inputStream, environment, null);
   }
 
+  /**
+   * 构造函数
+   * @param inputStream 对应的xml配置资源
+   * @param environment  对应的环境，比如dev,sit,uat等，由用户自定义
+   * @param props     对应的Properties资源
+   */
   public XMLConfigBuilder(InputStream inputStream, String environment, Properties props) {
     this(new XPathParser(inputStream, true, props, new XMLMapperEntityResolver()), environment, props);
   }
 
   private XMLConfigBuilder(XPathParser parser, String environment, Properties props) {
+    //先实例化Configuration类，然后调用父类构造器
     super(new Configuration());
     ErrorContext.instance().resource("SQL Mapper Configuration");
     this.configuration.setVariables(props);
@@ -91,33 +99,62 @@ public class XMLConfigBuilder extends BaseBuilder {
     this.parser = parser;
   }
 
+  /**
+   * =====>核心方法，将xml配置解析为Configuration对象
+   * @return
+   */
   public Configuration parse() {
     if (parsed) {
       throw new BuilderException("Each XMLConfigBuilder can only be used once.");
     }
     parsed = true;
+    // configuration为mybatis配置的根节点
     parseConfiguration(parser.evalNode("/configuration"));
     return configuration;
   }
 
+  /**
+   * 解析xml的节点(配置文件Mybatis-configuration.xml解析)，一个简单示例如下：
+   * <configuration>
+   *    <environments default="development">
+   *        <environment id="development">
+   *            <transactionManager type="JDBC"/>
+   *            <dataSource type="POOLED">
+   *                <property name="driver" value="com.mysql.cj.jdbc.Driver"/>
+   *                <property name="url" value="jdbc:mysql://47.93.201.88:3306/test"/>
+   *                <property name="username" value="test_user"/>
+   *                <property name="password" value="1q2w3e4r(A"/>
+   *            </dataSource>
+   *        </environment>
+   *    </environments>
+   *    <mappers>
+   *        <mapper resource="mapper/BlogMapper.xml"/>
+   *    </mappers>
+   * </configuration>
+   *  @param root
+   */
   private void parseConfiguration(XNode root) {
     try {
       // issue #117 read properties first
+      // properties标签解析
       propertiesElement(root.evalNode("properties"));
       Properties settings = settingsAsProperties(root.evalNode("settings"));
       loadCustomVfs(settings);
       loadCustomLogImpl(settings);
       typeAliasesElement(root.evalNode("typeAliases"));
+      // 插件配置解析
       pluginElement(root.evalNode("plugins"));
       objectFactoryElement(root.evalNode("objectFactory"));
       objectWrapperFactoryElement(root.evalNode("objectWrapperFactory"));
+      // 自定义反射工厂解析（创建对应mapper的代理类）
       reflectorFactoryElement(root.evalNode("reflectorFactory"));
       settingsElement(settings);
       // read it after objectFactory and objectWrapperFactory issue #631
+      // environments标签解析
       environmentsElement(root.evalNode("environments"));
       databaseIdProviderElement(root.evalNode("databaseIdProvider"));
       typeHandlerElement(root.evalNode("typeHandlers"));
-      // 解析Mapper并且将其放入Configuration中。
+      // ======>最核心的方法：对mapper的xml配置进行解析
       mapperElement(root.evalNode("mappers"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
@@ -361,32 +398,57 @@ public class XMLConfigBuilder extends BaseBuilder {
     }
   }
 
+  /**
+   * ====> 解析Mapper.xml
+   * <mappers>
+   *     <mapper resource="mapper/BlogMapper.xml"/>
+   * </mappers>
+   * 或者
+   *  <mappers>
+   *    <mapper resource="mapper/BlogMapper.xml" class="" url=""/>
+   * </mappers>
+   * @param parent
+   * @throws Exception
+   */
   private void mapperElement(XNode parent) throws Exception {
     if (parent != null) {
+      // 存在多个mapper.xml配置时，循环遍列处理每一个Mapper
       for (XNode child : parent.getChildren()) {
+        //对就标签<package/>,包扫描时，解析对应包路径下的所有mapper
         if ("package".equals(child.getName())) {
           String mapperPackage = child.getStringAttribute("name");
-          // 将对应的package下的所有Mapper存入configuration中
           configuration.addMappers(mapperPackage);
         } else {
+          // 单个 mapper解析，对应标签 <mapper></mapper>
+          // 资源文件配置resource
           String resource = child.getStringAttribute("resource");
+          // url属性
           String url = child.getStringAttribute("url");
+          // class属性
           String mapperClass = child.getStringAttribute("class");
+          // 场景一：resource不为空， url和mapperClass均为空，表明解析的方式是xml文件配置的形式
           if (resource != null && url == null && mapperClass == null) {
             ErrorContext.instance().resource(resource);
+            // 读取资源
             InputStream inputStream = Resources.getResourceAsStream(resource);
+            // 创建XMLMapperBuilder
             XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource, configuration.getSqlFragments());
+            // =======>开始解析
             mapperParser.parse();
-          } else if (resource == null && url != null && mapperClass == null) {
+          }
+          // 场景二：resource和mapperClass为空， url不为空，表明解析的方式是能过url的形式
+          else if (resource == null && url != null && mapperClass == null) {
             ErrorContext.instance().resource(url);
             InputStream inputStream = Resources.getUrlAsStream(url);
             XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, url, configuration.getSqlFragments());
             mapperParser.parse();
-          } else if (resource == null && url == null && mapperClass != null) {
+          }
+          // 场景三：resource和url为空， mapperClass不为空，表明解析的方式是能过mapperClass的形式
+          else if (resource == null && url == null && mapperClass != null) {
             Class<?> mapperInterface = Resources.classForName(mapperClass);
-            // 将对应的Mapper存入configuration中
             configuration.addMapper(mapperInterface);
           } else {
+            // 否则抛出异常，表时 url,resource和class三个属性是互斥的，只能其中一个有值
             throw new BuilderException("A mapper element may only specify a url, resource or class, but not more than one.");
           }
         }

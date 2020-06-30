@@ -29,6 +29,7 @@ import org.apache.ibatis.type.TypeHandler;
 import org.apache.ibatis.type.TypeHandlerRegistry;
 
 /**
+ * 基础Builder，有很多子类的实现，常见的
  * @author Clinton Begin
  */
 public abstract class BaseBuilder {
