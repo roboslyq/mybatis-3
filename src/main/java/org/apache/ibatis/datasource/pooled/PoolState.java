@@ -22,11 +22,19 @@ import java.util.List;
  * @author Clinton Begin
  */
 public class PoolState {
-
+  /**
+   * 数据源
+   */
   protected PooledDataSource dataSource;
-
+  /**
+   * 空闲连接
+   */
   protected final List<PooledConnection> idleConnections = new ArrayList<>();
+  /**
+   * 已经在使用的连接
+   */
   protected final List<PooledConnection> activeConnections = new ArrayList<>();
+  // 连接池相关参数
   protected long requestCount = 0;
   protected long accumulatedRequestTime = 0;
   protected long accumulatedCheckoutTime = 0;

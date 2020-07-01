@@ -5,3 +5,9 @@ ScriptRunner.java
 XPathParser.java
 Configuration.java
 SqlSessionFactoryBuilder.java
+MapperProxy.java
+MapperProxyFactory.java
+MapperRegistry.java
+XMLConfigBuilder.java
+ScriptRunner.java
+Configuration.java

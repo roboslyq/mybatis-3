@@ -39,9 +39,13 @@ import org.apache.ibatis.logging.LogFactory;
 public class PooledDataSource implements DataSource {
 
   private static final Log log = LogFactory.getLog(PooledDataSource.class);
-
+  /**
+   * 线程池状态管理器
+   */
   private final PoolState state = new PoolState(this);
-
+  /**
+   * 委托代理模式：通过委托，将部分功能交由UnpooledDataSource实现
+   */
   private final UnpooledDataSource dataSource;
 
   // OPTIONAL CONFIGURATION FIELDS
@@ -421,20 +425,24 @@ public class PooledDataSource implements DataSource {
       synchronized (state) {
         if (!state.idleConnections.isEmpty()) {
           // Pool has available connection
+          // 连接池中还有可用的连接,直接使用可用的连接
           conn = state.idleConnections.remove(0);
           if (log.isDebugEnabled()) {
             log.debug("Checked out connection " + conn.getRealHashCode() + " from pool.");
           }
         } else {
           // Pool does not have available connection
+          // 连接池中没有可用的连接,但没有超过最大活动连接
           if (state.activeConnections.size() < poolMaximumActiveConnections) {
             // Can create new connection
+            // 可以创建一个新的连接
             conn = new PooledConnection(dataSource.getConnection(), this);
             if (log.isDebugEnabled()) {
               log.debug("Created connection " + conn.getRealHashCode() + ".");
             }
           } else {
             // Cannot create new connection
+            // 不能创建连接
             PooledConnection oldestActiveConnection = state.activeConnections.get(0);
             long longestCheckoutTime = oldestActiveConnection.getCheckoutTime();
             if (longestCheckoutTime > poolMaximumCheckoutTime) {

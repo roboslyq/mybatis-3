@@ -849,6 +849,13 @@ public class Configuration {
     mapperRegistry.addMapper(type);
   }
 
+  /**
+   * 获取对应的Mapper
+   * @param type
+   * @param sqlSession
+   * @param <T>
+   * @return
+   */
   public <T> T getMapper(Class<T> type, SqlSession sqlSession) {
     return mapperRegistry.getMapper(type, sqlSession);
   }

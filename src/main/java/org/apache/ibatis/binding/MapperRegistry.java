@@ -27,19 +27,34 @@ import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
 
 /**
+ * Mapper注册器(容器)
  * @author Clinton Begin
  * @author Eduardo Macarron
  * @author Lasse Voss
  */
 public class MapperRegistry {
-
+  /**
+   * MyBatis的全局配置中心
+   */
   private final Configuration config;
+  /**
+   * key为接口,比如UserMapper等
+   *
+   */
   private final Map<Class<?>, MapperProxyFactory<?>> knownMappers = new HashMap<>();
 
   public MapperRegistry(Configuration config) {
     this.config = config;
   }
 
+  /**
+   * 获取Mapper: 返回的是对普通的Mapper(用户自定义的业务接口,比如UserMapper,TradeMapper等普通的接口,没有具体的实现。)
+   *             此处就是通过动态代理的方式，对上面的接口进行具体实现。
+   * @param type
+   * @param sqlSession
+   * @param <T>
+   * @return
+   */
   @SuppressWarnings("unchecked")
   public <T> T getMapper(Class<T> type, SqlSession sqlSession) {
     final MapperProxyFactory<T> mapperProxyFactory = (MapperProxyFactory<T>) knownMappers.get(type);

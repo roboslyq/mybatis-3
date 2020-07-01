@@ -54,11 +54,19 @@ public class MapperMethod {
     this.method = new MethodSignature(config, mapperInterface, method);
   }
 
+  /**
+   * Sql执行入口
+   * @param sqlSession
+   * @param args
+   * @return
+   */
   public Object execute(SqlSession sqlSession, Object[] args) {
     Object result;
     switch (command.getType()) {
       case INSERT: {
+        // 参数解析
         Object param = method.convertArgsToSqlCommandParam(args);
+        // sqlsession执行操作
         result = rowCountResult(sqlSession.insert(command.getName(), param));
         break;
       }
@@ -83,7 +91,9 @@ public class MapperMethod {
         } else if (method.returnsCursor()) {
           result = executeForCursor(sqlSession, args);
         } else {
+          // 普通查询进入这里
           Object param = method.convertArgsToSqlCommandParam(args);
+          // 执行查询：command.getName()= com.roboslyq.framework.mybatis.mapper.BlogMapper.selectBlog
           result = sqlSession.selectOne(command.getName(), param);
           if (method.returnsOptional()
               && (result == null || !method.getReturnType().equals(result.getClass()))) {
@@ -217,7 +227,9 @@ public class MapperMethod {
   }
 
   public static class SqlCommand {
-
+    /**
+     * 形如: com.roboslyq.framework.mybatis.mapper.BlogMapper.selectBlog
+     */
     private final String name;
     private final SqlCommandType type;
 

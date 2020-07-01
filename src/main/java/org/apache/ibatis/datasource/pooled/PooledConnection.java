@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import org.apache.ibatis.reflection.ExceptionUtil;
 
 /**
+ * 连接代理类:即对连接进行包装
  * @author Clinton Begin
  */
 class PooledConnection implements InvocationHandler {
@@ -33,7 +34,13 @@ class PooledConnection implements InvocationHandler {
 
   private final int hashCode;
   private final PooledDataSource dataSource;
+  /**
+   * 真实连接
+   */
   private final Connection realConnection;
+  /**
+   * JDK动态代理生成的代理连接,被代理的就是上面的真实连接
+   */
   private final Connection proxyConnection;
   private long checkoutTimestamp;
   private long createdTimestamp;

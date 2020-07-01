@@ -30,7 +30,7 @@ import org.apache.ibatis.reflection.ExceptionUtil;
 import org.apache.ibatis.session.SqlSession;
 
 /**
- * Mapper的代理类，通过这个代理类实现Mapper接口具体方法。
+ * Mapper的代理类，通过这个代理类实现Mapper接口具体方法。本射实现了JDK的InvocationHandler代理接口
  * @author Clinton Begin
  * @author Eduardo Macarron
  */
@@ -41,10 +41,25 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
       | MethodHandles.Lookup.PACKAGE | MethodHandles.Lookup.PUBLIC;
   private static final Constructor<Lookup> lookupConstructor;
   private static final Method privateLookupInMethod;
+  /**
+   * sqlSession:sql执行器,相当于JDBC中的connection
+   */
   private final SqlSession sqlSession;
+  /**
+   * 被代理的Mapper接口(具体的业务相关，比如UserMaaper等)
+   */
   private final Class<T> mapperInterface;
+  /**
+   * 被代理的Mapper对应的方法信息，key为方法，Value为方法对应的Invoker
+   */
   private final Map<Method, MapperMethodInvoker> methodCache;
 
+  /**
+   * 代理实现
+   * @param sqlSession
+   * @param mapperInterface
+   * @param methodCache
+   */
   public MapperProxy(SqlSession sqlSession, Class<T> mapperInterface, Map<Method, MapperMethodInvoker> methodCache) {
     this.sqlSession = sqlSession;
     this.mapperInterface = mapperInterface;
@@ -77,12 +92,22 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
     lookupConstructor = lookup;
   }
 
+  /**
+   * Mapper执行入口
+   * @param proxy
+   * @param method
+   * @param args
+   * @return
+   * @throws Throwable
+   */
   @Override
   public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
     try {
       if (Object.class.equals(method.getDeclaringClass())) {
+        // 如果是Object的相关方法，则直接调用，不需要代理
         return method.invoke(this, args);
       } else {
+        // 否则使用代理
         return cachedInvoker(method).invoke(proxy, method, args, sqlSession);
       }
     } catch (Throwable t) {
@@ -90,19 +115,29 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
     }
   }
 
+  /**
+   * 从缓存中获取
+   * @param method
+   * @return
+   * @throws Throwable
+   */
   private MapperMethodInvoker cachedInvoker(Method method) throws Throwable {
     try {
       // A workaround for https://bugs.openjdk.java.net/browse/JDK-8161372
       // It should be removed once the fix is backported to Java 8 or
       // MyBatis drops Java 8 support. See gh-1929
+      // 缓存存在时，直接返回
       MapperMethodInvoker invoker = methodCache.get(method);
       if (invoker != null) {
         return invoker;
       }
-
+      // 返回不存在时，直接创建。区分Java8和Java9
       return methodCache.computeIfAbsent(method, m -> {
+        // 新建时会查看当前调用的方法是不是又默认实现(m.isDefault(),Java8之后的新语法，接口可以有默认实现)，如果是，就新建一个DefaultMethodInvoker，
+        // 否则，新建一个PlainMethodInvoker，这两个类都是MethodInvoker的实现类，作用就是一个处理默认方法的调用，另一个处理没有被实现的方法的调用
         if (m.isDefault()) {
           try {
+            // 接口默认实现调用
             if (privateLookupInMethod == null) {
               return new DefaultMethodInvoker(getMethodHandleJava8(method));
             } else {
@@ -113,6 +148,7 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
             throw new RuntimeException(e);
           }
         } else {
+          // 普通Mapper调用
           return new PlainMethodInvoker(new MapperMethod(mapperInterface, method, sqlSession.getConfiguration()));
         }
       });
@@ -148,12 +184,25 @@ public class MapperProxy<T> implements InvocationHandler, Serializable {
       this.mapperMethod = mapperMethod;
     }
 
+    /**
+     * ===>普通的接口中的方法代理执行
+     * @param proxy
+     * @param method
+     * @param args
+     * @param sqlSession
+     * @return
+     * @throws Throwable
+     */
     @Override
     public Object invoke(Object proxy, Method method, Object[] args, SqlSession sqlSession) throws Throwable {
+      //===> 核心方法
       return mapperMethod.execute(sqlSession, args);
     }
   }
 
+  /**
+   * 接口默认实现方法的MethodInvoker
+   */
   private static class DefaultMethodInvoker implements MapperMethodInvoker {
     private final MethodHandle methodHandle;
 
